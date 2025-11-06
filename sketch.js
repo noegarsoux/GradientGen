@@ -90,7 +90,13 @@ function init() {
         if (resetButton) {
             resetButton.addEventListener('click', resetAllParameters);
         }
-        
+
+        // Bouton de randomize
+        const randomizeButton = document.getElementById("randomizeButton");
+        if (randomizeButton) {
+          randomizeButton.addEventListener("click", randomizeAllParameters);
+        }
+          
         // Démarrer le rendu une fois le shader chargé
         startRender();
     }).catch(error => {
@@ -516,6 +522,305 @@ const defaultParams = {
     gradientColors: [],
     exportResolution: 4096
 };
+
+// Randomiser tous les paramètres
+function randomizeAllParameters() {
+  // Générer des valeurs aléatoires pour chaque paramètre (sauf COLOR et EFFECTS sections)
+  shaderParams.scale = Math.random() * 21; // 0-20
+  shaderParams.phaseX = Math.random() * 2; // 0-2
+  shaderParams.velocity = Math.random() * 5; // 0-5
+  shaderParams.mode1Detail = Math.floor(Math.random() * 991 + 10); // 10-1000
+  shaderParams.mode1Twist = Math.floor(Math.random() * 101); // 0-100
+  shaderParams.mode2Speed = Math.random() * 10; // 0-10
+  shaderParams.movementMode = Math.floor(Math.random() * 8); // 0-7
+
+  // Mettre à jour tous les sliders
+  const scaleSlider = document.getElementById("scale");
+  if (scaleSlider) {
+    scaleSlider.value = shaderParams.scale;
+    document.getElementById("scaleValue").textContent = shaderParams.scale.toFixed(2);
+  }
+
+  const phaseXSlider = document.getElementById("phaseX");
+  if (phaseXSlider) {
+    phaseXSlider.value = shaderParams.phaseX;
+    document.getElementById("phaseXValue").textContent = shaderParams.phaseX.toFixed(2);
+  }
+
+  const velocityYSlider = document.getElementById("velocityY");
+  if (velocityYSlider) {
+    velocityYSlider.value = shaderParams.velocity;
+    document.getElementById("velocityYValue").textContent = shaderParams.velocity.toFixed(2);
+  }
+
+  const mode1DetailSlider = document.getElementById("mode1Detail");
+  if (mode1DetailSlider) {
+    mode1DetailSlider.value = shaderParams.mode1Detail;
+    document.getElementById("mode1DetailValue").textContent = shaderParams.mode1Detail.toFixed(2);
+  }
+
+  const mode1TwistSlider = document.getElementById("mode1Twist");
+  if (mode1TwistSlider) {
+    mode1TwistSlider.value = shaderParams.mode1Twist;
+    document.getElementById("mode1TwistValue").textContent = shaderParams.mode1Twist.toFixed(2);
+  }
+
+  const mode2SpeedSlider = document.getElementById("mode2Speed");
+  if (mode2SpeedSlider) {
+    mode2SpeedSlider.value = shaderParams.mode2Speed;
+    document.getElementById("mode2SpeedValue").textContent = shaderParams.mode2Speed.toFixed(2);
+  }
+
+  const movementModeSelect = document.getElementById("movementMode");
+  if (movementModeSelect) {
+    movementModeSelect.value = shaderParams.movementMode.toString();
+  }
+
+  // Randomiser les couleurs du gradient (2-6 couleurs)
+  const gradientContainer = document.getElementById("gradientColorsContainer");
+  if (gradientContainer) {
+    const numColors = Math.floor(Math.random() * 5) + 2; // 2-6 colors
+    const colors = [];
+
+    // Supprimer tous les champs existants
+    gradientContainer.innerHTML = "";
+
+    // Variable partagée pour le drag & drop
+    let draggedElement = null;
+
+    // Fonction helper pour mettre à jour les couleurs
+    const updateGradientColors = () => {
+      const inputs = gradientContainer.querySelectorAll(".hex-color-input");
+      const newColors = [];
+
+      inputs.forEach((input) => {
+        const hex = input.value.trim();
+        if (hex.length === 7 && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+          const rgb = hexToRgb(hex);
+          if (rgb) {
+            newColors.push(rgb);
+          }
+        }
+      });
+
+      shaderParams.gradientColors = newColors;
+      updateShaderParams();
+    };
+
+    // Fonction helper pour ajouter un nouveau champ
+    const addGradientColorInput = () => {
+      const group = document.createElement("div");
+      group.className = "color-input-group";
+      group.draggable = true;
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "hex-color-input";
+      input.placeholder = "#000000";
+      input.maxLength = 7;
+      input.pattern = "#[0-9A-Fa-f]{6}";
+
+      input.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+      });
+
+      const preview = document.createElement("div");
+      preview.className = "color-preview";
+
+      const colorPicker = document.createElement("input");
+      colorPicker.type = "color";
+      colorPicker.style.position = "absolute";
+      colorPicker.style.opacity = "0";
+      colorPicker.style.width = "0";
+      colorPicker.style.height = "0";
+      colorPicker.style.pointerEvents = "none";
+
+      preview.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const currentHex = input.value;
+        if (currentHex && /^#[0-9A-Fa-f]{6}$/.test(currentHex)) {
+          colorPicker.value = currentHex;
+        } else {
+          colorPicker.value = "#000000";
+        }
+        colorPicker.click();
+      });
+
+      colorPicker.addEventListener("input", (e) => {
+        const hex = e.target.value.toUpperCase();
+        input.value = hex;
+        input.dispatchEvent(new Event("input", {bubbles: true}));
+      });
+
+      if (!document.getElementById("hiddenColorPickers")) {
+        const hiddenContainer = document.createElement("div");
+        hiddenContainer.id = "hiddenColorPickers";
+        hiddenContainer.style.position = "absolute";
+        hiddenContainer.style.top = "-9999px";
+        hiddenContainer.style.left = "-9999px";
+        document.body.appendChild(hiddenContainer);
+      }
+      document.getElementById("hiddenColorPickers").appendChild(colorPicker);
+
+      // Drag & Drop handlers
+      group.addEventListener("dragstart", (e) => {
+        draggedElement = group;
+        group.style.opacity = "0.5";
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/html", group.innerHTML);
+      });
+
+      group.addEventListener("dragend", (e) => {
+        group.style.opacity = "";
+        draggedElement = null;
+        gradientContainer.querySelectorAll(".color-input-group").forEach((g) => {
+          g.classList.remove("drag-over");
+        });
+      });
+
+      group.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+
+        if (draggedElement && draggedElement !== group) {
+          const allGroups = Array.from(gradientContainer.querySelectorAll(".color-input-group"));
+          const draggedIndex = allGroups.indexOf(draggedElement);
+          const currentIndex = allGroups.indexOf(group);
+
+          allGroups.forEach((g) => g.classList.remove("drag-over"));
+
+          if (draggedIndex !== currentIndex) {
+            group.classList.add("drag-over");
+          }
+        }
+      });
+
+      group.addEventListener("dragleave", (e) => {
+        if (!group.contains(e.relatedTarget)) {
+          group.classList.remove("drag-over");
+        }
+      });
+
+      group.addEventListener("drop", (e) => {
+        e.preventDefault();
+        group.classList.remove("drag-over");
+
+        if (draggedElement && draggedElement !== group) {
+          const allGroups = Array.from(gradientContainer.querySelectorAll(".color-input-group"));
+          const draggedIndex = allGroups.indexOf(draggedElement);
+          const currentIndex = allGroups.indexOf(group);
+
+          if (draggedIndex !== currentIndex) {
+            if (draggedIndex < currentIndex) {
+              gradientContainer.insertBefore(draggedElement, group.nextSibling);
+            } else {
+              gradientContainer.insertBefore(draggedElement, group);
+            }
+            updateGradientColors();
+          }
+        }
+        draggedElement = null;
+      });
+
+      // Input event handler
+      input.addEventListener("input", (e) => {
+        const hex = e.target.value;
+        if (hex.length === 7 && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+          preview.style.backgroundColor = hex;
+          preview.classList.add("has-color");
+
+          const allGroups = gradientContainer.querySelectorAll(".color-input-group");
+          if (group === allGroups[allGroups.length - 1]) {
+            addGradientColorInput();
+          }
+
+          updateGradientColors();
+        } else {
+          preview.style.backgroundColor = "";
+          preview.classList.remove("has-color");
+          updateGradientColors();
+        }
+      });
+
+      // Blur handler
+      input.addEventListener("blur", () => {
+        const allGroups = gradientContainer.querySelectorAll(".color-input-group");
+        if (allGroups.length > 1 && !input.value) {
+          const inputs = gradientContainer.querySelectorAll(".hex-color-input");
+          const hasValue = Array.from(inputs).some((inp) => inp.value && inp !== input);
+          if (hasValue) {
+            group.remove();
+            updateGradientColors();
+          }
+        }
+      });
+
+      // Delete button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "color-delete-btn";
+      deleteBtn.innerHTML = "×";
+      deleteBtn.type = "button";
+      deleteBtn.title = "Supprimer cette couleur";
+      deleteBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const allGroups = gradientContainer.querySelectorAll(".color-input-group");
+        if (allGroups.length > 1) {
+          group.remove();
+          updateGradientColors();
+        }
+      });
+
+      group.appendChild(input);
+      group.appendChild(preview);
+      group.appendChild(deleteBtn);
+      gradientContainer.appendChild(group);
+
+      return {group, input, preview};
+    };
+
+    // Créer les champs de couleur avec les valeurs aléatoires
+    for (let i = 0; i < numColors; i++) {
+      const r = Math.floor(Math.random() * 256);
+      const g = Math.floor(Math.random() * 256);
+      const b = Math.floor(Math.random() * 256);
+      const hex =
+        "#" +
+        [r, g, b]
+          .map((x) => {
+            const hex = x.toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+          })
+          .join("");
+
+      colors.push([r / 255.0, g / 255.0, b / 255.0]);
+
+      // Créer le groupe avec tous les handlers
+      const {input, preview} = addGradientColorInput();
+      input.value = hex;
+      preview.style.backgroundColor = hex;
+      preview.classList.add("has-color");
+    }
+
+    // Ajouter un champ vide à la fin pour permettre d'ajouter plus de couleurs
+    addGradientColorInput();
+
+    // Mettre à jour directement les couleurs du gradient
+    shaderParams.gradientColors = colors;
+    updateGradientColors();
+  }
+
+  // Recharger le shader pour appliquer les nouveaux paramètres
+  loadShaders()
+    .then(() => {
+      console.log("Paramètres randomisés");
+      updateShaderParams();
+    })
+    .catch((error) => {
+      console.error("Erreur lors de la randomisation:", error);
+    });
+}
 
 // Réinitialiser tous les paramètres
 function resetAllParameters() {
@@ -2449,4 +2754,3 @@ function renderPass(program, targetFramebuffer, textures, writeTexture = null) {
 
 // Démarrer l'application
 init();
-
